@@ -104,7 +104,10 @@ def deliver(m, out_path):
             if tried else "这份地图既没有期间也没有事件，无从落笔。")
     form, why, wh = choose_and_render(m, out_path)
     if tried:
-        why = "；".join(tried) + f"。故改用编号型：{why}"
+        # tried 里每条本身就以句号收尾，直接再拼一个「。」会印出「。。」——
+        # 原来这句被调用方截断到 110 字，看不见；不截断之后就露出来了。
+        _head = "；".join(tried).rstrip("。；;.")
+        why = _head + f"。故改用编号型：{why}"
     return ("编号型", form, why, wh)
 
 

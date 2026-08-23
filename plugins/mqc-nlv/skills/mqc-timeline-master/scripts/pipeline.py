@@ -329,7 +329,7 @@ def stage_span(sel):
 
 
 def stage_style(sel):
-    """第三轮的答案：呈报给谁 → 风格。奇川风才进第四轮（标红）。"""
+    """第三轮的答案：呈报给谁 → 风格。奇川风才进第五轮（标红）。"""
     import pick as PK
     st = _load(STATE, "先跑到 span")
     tbl = {s["id"]: s for s in PK.round_three()}
@@ -337,10 +337,18 @@ def stage_style(sel):
     if str(sel).strip() in ("", "默认", "d"):
         chosen = tbl[1]
         print(f"未指定，按默认：{chosen['name']}")
+    elif str(sel).strip() == "4":
+        # 第四档「让我定」：steps 表与 next 的提示一直写着 `style <1-4>`，
+        # 而 round_three() 只有三档，敲 4 会被判成「没有第 4 项」并退出 ——
+        # 文档承诺了一个不存在的选项。这里按 v1 的「不回 = 1」落到默认档，
+        # 不新增第四种风格，只把已经承诺的那条路接通。
+        chosen = tbl[1]
+        print(f"由我来定：{chosen['name']}　{chosen['look']}")
+        print(f"      {chosen['use']}")
     else:
         chosen = tbl.get(int(sel))
         if not chosen:
-            print(f"没有第 {sel} 项，请报 1 到 3")
+            print(f"没有第 {sel} 项，请报 1 到 4（4 = 让我替你定）")
             sys.exit(1)
         print(f"已选：{chosen['name']}　{chosen['look']}")
     st["style"] = chosen["name"]
@@ -451,7 +459,12 @@ def stage_offer():
         print(f"（若全选或多选相关的几段，会合成一张{_all_form}——"
               f"上面标的是「单独勾这一段」时的图种）")
     print("报编号即可，可多选，也可全选，或者让我替你定。")
-    print("然后跑：python pipeline.py budget 4      （或 budget all）")
+    # 例子里的编号必须来自**这份清单**：写死一个数时，清单只有一两项就会提示
+    # 「budget 4」而第 4 项根本不存在 —— 用户照着敲就会撞错。
+    _eg = str(parts[-1].get("id", 1)) if parts else "1"
+    print(f"然后跑：python pipeline.py budget {_eg}"
+          + ("      （或 budget 1,2 多选 / budget all 全选）" if len(parts) > 1
+             else "      （或 budget all）"))
 
 
 # ---------------------------------------------------------------- stage budget
@@ -858,7 +871,7 @@ def stage_render(out):
             m["axis"] = {"start": m["spans"][0]["from"], "end": m["spans"][-1]["to"]}
         kind, form, why, wh = RF.deliver(m, out)
         print(f"出图：{kind}·{form}　整幅 {wh[0]:.0f}x{wh[1]:.0f}　{out}")
-        print(f"  {why[:110]}")
+        _say_why(kind, why)
         return
 
     proto = {"unit_type": "fact", "source": {}, "time": {}}
@@ -987,7 +1000,7 @@ def stage_render(out):
               f"这些事项未经逐字核验。")
     kind, form, why, wh = RF.deliver(m, out)
     print(f"出图：{kind}·{form}　整幅 {wh[0]:.0f}x{wh[1]:.0f}　{out}")
-    print(f"  {why[:110]}")
+    _say_why(kind, why)
     # 传交付时**实际用的** layout：kind 是中文图种名，这里映回语义地图的 layout 名，
     # 因为 v1 的 _MODULE_LAYOUTS 是按 layout 名写的。
     _LAY_OF = {"编号型": "numbered_point_timeline", "日期型": "dated_point_timeline",
@@ -1163,6 +1176,60 @@ def _trace(items, S, st, out):
         print(f"溯源索引没写成：{exc}")
 
 
+
+def _say_why(kind, why):
+    """出图理由分两层：先一句人话说结论，再把机械判据原样给出。
+
+    这一处改的只是**呈现**，不是判据。起因是真实读者（含自动评测）把
+    「日期型：…超过 8 格的上限…请改用编号型」读成了「出不了图，要改材料」，
+    而事实相反：阶梯自动落到下一档，图已经出好了。结论不说在前面，
+    读者就只能从一串机械理由里自己推。
+
+    另外原来写的是 `why[:110]`，会在词中间断掉（实测断出
+    「请改用编号型（numbered_point_timeli」这种残句）。机械理由一个字不删 ——
+    C4 要求指名不成立的是哪一条 —— 改成按宽度折行，不截断。
+    """
+    if not why:
+        return
+    print(f"  图已出。图种是算出来的：这份材料落在「{kind}」这一档，"
+          f"上一档不成立时会自动落档，不需要你改材料。判据：")
+    # 折行的原子是「一个汉字」或「一串连续的 ASCII」：按单字符折会把
+    # numbered_point_timeline 劈成两行，读起来像两个不同的标识符。
+    atoms, buf = [], ""
+    for ch in str(why):
+        if ch == "\n":
+            if buf:
+                atoms.append(buf)
+                buf = ""
+            atoms.append("\n")
+        elif ord(ch) < 128 and not ch.isspace():
+            buf += ch
+        else:
+            if buf:
+                atoms.append(buf)
+                buf = ""
+            atoms.append(ch)
+    if buf:
+        atoms.append(buf)
+
+    line, width = "", 0
+    for a in atoms:
+        if a == "\n":
+            print(f"    {line}")
+            line, width = "", 0
+            continue
+        w = sum(1 if ord(c) < 128 else 2 for c in a)
+        if width and width + w > 88:
+            print(f"    {line}")
+            line, width = "", 0
+        if not line and a == " ":
+            continue
+        line += a
+        width += w
+    if line:
+        print(f"    {line}")
+
+
 #: 全流程。命令、谁做、要什么。`python pipeline.py steps` 打印它。
 STEPS = [
     ("read <材料...>", "代码", "读材料、切句、认叙述块", ""),
@@ -1181,7 +1248,7 @@ def stage_next():
     """现在走到第几步、下一步跑什么、缺哪个文件。
 
     **不做「一键出图」**：九步里有四步必须等用户回答（勾材料、勾时间段、选风格、勾部分），
-    一口气跑完等于把那四轮交互替用户答了 —— 而那四轮是这个 skill 的设计核心
+    一口气跑完等于把那几轮交互替用户答了 —— 而那几轮勾选是这个 skill 的设计核心
     （见 references/front-end.md「一轮交互」那一节：先前的设计是四问，
     「先问全部还是局部」被作者指出是假省 token，改成读完材料直接给勾选清单）。
 
@@ -1248,12 +1315,20 @@ def stage_next():
 
 
 def stage_steps():
-    print("全流程（四轮交互都在前段，其余自动）：")
+    # 标题原来写「四轮交互都在前段」。表里标「用户」的确实是四行，但**实际有五轮** ——
+    # 第五轮（标红，`mark`）在抽取完事项之后问，不在这张表里，于是同一个包里
+    # README 说五个问题、这里说四轮。数字一旦写死就会与别处打架，改成不数数：
+    # 判据是「谁做」那一列，它跟着 STEPS 走，永远不会漂。
+    print("全流程（标着「用户」的那几步等他勾选，其余自动）：")
     print()
     print(f"  {'命令':<22}{'谁做':<6}{'做什么':<34}{'要先写的文件'}")
     print("  " + "-" * 86)
     for cmd, who, what, need in STEPS:
         print(f"  {cmd:<22}{who:<6}{what:<34}{need}")
+    print()
+    print()
+    print("  另有 mark <编号|0>    用户  第五轮：深红标在哪一处（0 = 不标）")
+    print("  ——它在抽取完事项之后、出图之前问，只有奇川风才问，所以不在上表的主序里。")
     print()
     print("中途接手：python pipeline.py next   —— 现在走到第几步、下一步跑什么")
     print("四份 JSON 的形状与判据：python pipeline.py shape verdicts.json")

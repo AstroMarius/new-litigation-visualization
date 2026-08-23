@@ -2943,7 +2943,9 @@ def main_render_guards():
         if not _want_err and _e15:
             msgs.append(f"期间型该不该用：误拒「{_lbl15}」—— {_e15[0][:50]}")
 
-    # [M14] 三泳道：三层要照声明的顺序、层间不许留过大空隙、三个侧标都要画。
+    # [M14] 三泳道：三层要照声明的顺序、层间不许留过大空隙、**标注只有两个**。
+    # 这一行原来写着「三个侧标都要画」，与下面十几行处的判据（_lbl_cnt > 2 就报错）
+    # 正好相反 —— 判据改对了，抬头的注释没跟着改。注释骗人比判据错更难发现。
     _t3 = _CP.deepcopy(json.load(open(os.path.join(SKILL, "examples",
                                                    "two-sides-numbered.json"),
                                       encoding="utf-8")))

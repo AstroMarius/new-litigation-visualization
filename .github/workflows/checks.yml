@@ -5,17 +5,29 @@ on:
   push:
   pull_request:
 
+# 同一分支上连推几次时，取消还在跑的旧任务：省时间，也避免旧任务超时红一次。
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-checks:
-    runs-on: ubuntu-latest
+    # **钉死镜像，不用 ubuntu-latest。** latest 是移动靶：GitHub 换一次镜像，
+    # LibreOffice / poppler / node / Python 的版本会一起变，包名偶尔也变 ——
+    # 于是代码一个字没动、CI 却红了。前后红过五轮，根因全是这一类。
+    # 钉死之后升级由我们挑时间做，而不是它挑时间。
+    runs-on: ubuntu-24.04
+    # 全套约半分钟，装依赖几分钟。25 分钟还没完就是卡住了，不该让它空转到六小时。
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          # 同上：'3.x' 也是移动靶。钉一个具体的小版本。
+          python-version: '3.12'
 
       - name: Install graphviz (needed by flowchart / relationship layouts)
         run: sudo apt-get update && sudo apt-get install -y graphviz
@@ -79,6 +91,43 @@ jobs:
       # run_checks.py resolves every path from its own __file__, so it can be
       # invoked from the repository root without a working-directory change.
       # One line per skill; add the next skill's entry beside these.
+      # 跑回归之前先把环境摊开印一遍。**这一步不是装饰，是排障的入口。**
+      # 反复踩过的那一类失败（本机有的 CI 上没有、装成功却找不到）在日志里长得都
+      # 一样，看不出是哪一样漂了。有了这份清单，下次红的时候把日志开头与上次一比
+      # 就知道差别在哪，不必再逐项猜。continue-on-error：它只负责报告，
+      # 报告本身失败不该把整条流水线判红。
+      - name: Environment inventory (diagnostic only)
+        continue-on-error: true
+        run: |
+          echo "===== runner ====="
+          uname -a; cat /etc/os-release | head -2
+          echo "===== python ====="
+          python --version; python -c "import sys; print(sys.executable)"
+          python -m pip list 2>/dev/null | grep -Ei 'pillow|docx|reportlab|img2pdf' || true
+          echo "===== external tools ====="
+          # 版本参数各家不同：poppler 的 pdftoppm / pdftotext 认 -v（--version 会被
+          # 当成文件名，印出 I/O Error 那种误导性的行），graphviz 的 dot 认 -V。
+          # 探测方式写错，清单本身就会骗人 —— 这一步实跑核对过。
+          probe() {
+            printf '%-14s ' "$1"
+            command -v "$1" >/dev/null 2>&1 || { echo "MISSING"; return; }
+            "$1" $2 2>&1 | head -1
+          }
+          probe soffice --version
+          probe pdftoppm -v
+          probe pdftotext -v
+          probe dot -V
+          probe node --version
+          probe npm --version
+          probe rsvg-convert --version
+          probe inkscape --version
+          echo "NODE_PATH=$NODE_PATH"
+          node -e "require.resolve('docx'); console.log('npm docx: resolvable')" 2>&1 | head -1
+          echo "===== CJK fonts ====="
+          fc-list | grep -ci "CJK" || echo 0
+          echo "===== doctor.py (v1 kernel) ====="
+          python plugins/mqc-nlv/skills/mqc-litigation-visual-redraw/scripts/doctor.py || true
+
       - name: Run regression · mqc-litigation-visual-redraw
         run: python plugins/mqc-nlv/skills/mqc-litigation-visual-redraw/tests/run_checks.py
 

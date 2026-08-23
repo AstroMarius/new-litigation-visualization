@@ -25,6 +25,17 @@ final.drawio
 final.drawio.svg
 *-draft.*
 
+# ---- 管线的中间产物（时间轴大师）----
+# pipeline.py 把这五份写在**当前工作目录**。在仓库里跑一次流程就会留下它们，
+# 而它们是某一次办案的中间状态（含材料原句），既不该入库也不该被别人看到。
+state.json
+verdicts.json
+parts.json
+skeleton.json
+items.json
+*-trace.json
+*-溯源索引.docx
+
 # ---- 系统 / 编辑器 ----
 .DS_Store
 Thumbs.db

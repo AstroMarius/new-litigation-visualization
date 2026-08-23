@@ -190,6 +190,12 @@ def build(check_only=False):
     # （点号开头的文件在 Windows 上拷贝时容易漏，`.github` 已经漏过一次）。
     #
     # 判据反过来写：**只有身份戳存在且与本机一致，才真的比对。**
+    # 身份戳是**两行**：第一行渲染器、第二行字体（见下方写入处）。
+    # 而这里原来拿整份内容去跟**一行**的 renderer_id 比 —— 两者永远不相等，
+    # 于是 gallery 比对在任何机器上都从不执行，包括生成它的那一台。
+    # 实测：本机的 renderer_id 与 font_id 与文件里的两行逐字相同，却仍然打印
+    # 「略过 gallery 比对」。一道从不执行的门禁，比没有这道门禁更坏，
+    # 因为它让人以为图被检查过。判据补齐成两行对两行之后，门禁真的跑起来并通过。
     _rid = renderer_id()
     if check_only:
         _stamp = stamp_path()
@@ -199,13 +205,14 @@ def build(check_only=False):
                 _was = open(_stamp, encoding="utf-8").read().strip()
         except OSError:
             _was = ""
-        if _was != _rid:
+        _want = _rid + "\n" + font_id()
+        if _was != _want:
             if not _was:
                 print(f"  略过 gallery 比对：没有渲染器身份戳"
                       f"（assets/screenshots/.renderer），无从判断是不是同一台机器")
             else:
-                print(f"  略过 gallery 比对：签进仓库的图由「{_was}」渲出，"
-                      f"本机是「{_rid}」")
+                print(f"  略过 gallery 比对：签进仓库的图由\n    「{_was}」\n"
+                      f"    渲出，本机是\n    「{_want}」")
             print(f"    gallery 是光栅化产物，换渲染器必有像素差异，"
                   f"与代码改没改无关。")
             print(f"    要在本机重生成并认领身份：python3 scripts/make_gallery.py")
