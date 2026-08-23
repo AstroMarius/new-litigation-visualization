@@ -7,8 +7,11 @@
   <img src="https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white" alt="Python 3"/>
   <img src="https://img.shields.io/badge/dependencies-none%20(stdlib)-991B1B" alt="zero third-party dependencies"/>
   <a href="https://github.com/MiaoQichuan/new-litigation-visualization/actions/workflows/checks.yml"><img src="https://github.com/MiaoQichuan/new-litigation-visualization/actions/workflows/checks.yml/badge.svg" alt="checks"/></a>
+  <img src="https://img.shields.io/badge/Built%20with-Claude-D97757?logo=anthropic&logoColor=white" alt="Built with Claude"/>
   <img src="https://img.shields.io/badge/Claude-Skills-D97757?logo=anthropic&logoColor=white" alt="Claude Skills"/>
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-supported-4D6BFE" alt="DeepSeek Harness supported"/>
+  <img src="https://img.shields.io/badge/A4%20%E6%89%93%E5%8D%B0-%E8%AE%BE%E8%AE%A1%E5%89%8D%E6%8F%90-0F766E" alt="A4 打印是设计前提"/>
+  <img src="https://img.shields.io/badge/%E8%BE%93%E5%87%BA-%E4%BA%94%E7%A7%8D%E5%8F%AF%E7%BC%96%E8%BE%91%E6%A0%BC%E5%BC%8F-7C3AED" alt="五种可编辑格式"/>
 </p>
 
 ---
@@ -29,6 +32,35 @@
 </p>
 
 **支持 DeepSeek Harness。** 两个模块都是标准的 `SKILL.md` 目录，没有任何产品特定的胶水代码，凡是能读 skill 指令的 agent 都装得上：Claude Code、Codex、DeepSeek Harness、Cursor、Gemini CLI、Copilot、Cline、Aider。同一份仓库，不维护两套。
+
+## 仓库结构
+
+```
+new-litigation-visualization/
+├── assets/                       仓库封面
+├── .claude-plugin/
+│   └── marketplace.json          插件市场清单
+├── plugins/
+│   └── mqc-nlv/
+│       ├── .claude-plugin/
+│       │   └── plugin.json       插件清单（版本只在这里声明）
+│       └── skills/
+│           ├── mqc-litigation-visual-redraw/    诉讼可视化重画
+│           │   ├── SKILL.md      技能主文档
+│           │   ├── references/   规程与标准
+│           │   ├── scripts/      确定性渲染管线
+│           │   └── schemas/ examples/ assets/ tests/
+│           └── mqc-timeline-master/             时间轴大师
+│               ├── SKILL.md      技能主文档
+│               ├── references/   规程与约束表（69 条编号约束）
+│               ├── scripts/      确定性渲染管线
+│               ├── docs/adr/     一件事为什么这么定
+│               └── schemas/ examples/ assets/ tests/
+└── .github/workflows/checks.yml  每次 push 与 PR 自动跑全部回归
+```
+
+**共享内核只有一份。** 几何、字体、换行、导出这些多个模块共用的代码放在插件根，
+模块不许各自分叉。这是纪律不是设计：两边各存一份，半年后就是两套不一样的圆角。
 
 ## 安装
 
@@ -102,6 +134,10 @@ skills 目录即可，`SKILL.md` 是通用格式。
 
 <br/>
 
+三种风格共用同一套几何：圆角多大、连线多粗、卡片怎么错开、字号怎么分层，全都
+一模一样，变的只是表达。所以换风格不会改变图的结构，也不会让某一版排得更松或
+更挤。下面三张长图分别是三套完整的视觉规范，每一个数值都写在上面。
+
 **奇川风** — 灰阶为底，一处深红标重点，向委托人与法官呈现。
 
 <p align="center">
@@ -136,27 +172,50 @@ skills 目录即可，`SKILL.md` 是通用格式。
 </p>
 <p align="center"><sub>真实输出：八个事项、深红标在你指定的那一处、A4 横版直接打印</sub></p>
 
+### 用数学算清楚一张时间轴怎么画
+
+一张 A4 有多宽是定死的。时间轴上有几个时点，轴就被分成几段，每一段的长度决定了
+模块落在哪里；位置定住才知道相邻两块之间还剩多少空，剩多少空决定一块能有多宽，
+宽度定了才知道这一块能写几个字。**先定位置，再定尺寸，最后才定能写多少字。**
+下面这张长图把这条链路和两道几何门禁逐步拆开讲了一遍。
+
+<p align="center">
+  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/01-mathematics.png" width="820" alt="01 数学"/>
+</p>
+
 <details>
-<summary><b>它凭什么画得准 · 点开看三张长图</b>（数学 · 画准 · 使用手册）</summary>
+<summary><b>02 画准 · 前端负责读懂，后端负责算准</b>（点开看长图）</summary>
 
 <br/>
 
-**01 数学** — 用数学算清楚一张时间轴怎么画。
+一张图画不准，无非两件事出错：该画的事没抽对，或者抽对了却排不下。所以这里分成
+两段各管一件，中间只交接一个数。前端从材料里把有法律含义的事实抽出来，交出一份
+事项清单；后端按这一档的几何算出每一块能写多少字，把这个数交回去；前端再按这个
+数把字写到位。**反过来先写好再排，就只剩两条路：把字截掉，或者把版面挤坏。**
+
+这张长图还讲了忠实性怎么验：卡片上每一段文字都必须是原句删掉一些字之后剩下的
+样子，换一个词、调一次词序、补一个字，都会在出图之前被拦住。
 
 <p align="center">
-  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/01-mathematics.png" width="760" alt="01 数学"/>
+  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/02-exact.png" width="800" alt="02 画准"/>
 </p>
 
-**02 画准** — 前端负责读懂，后端负责算准，中间只交接一个数。
+</details>
+
+<details>
+<summary><b>03 使用手册 · 材料怎么给、它问什么、你拿到什么</b>（点开看长图）</summary>
+
+<br/>
+
+材料怎么顺手怎么给，不用先整理、不用改格式、不用自己先画一张。它读完最多问你五个
+问题，该问的才问：只有一份材料就不问第一问，日期不足八个就不问第二问，风格不是
+奇川风就不问标红。问完就出图，之后不再打断你。
+
+这张长图逐一列出了它吃哪些材料、三种形态各自用在什么场合、泳道怎么分、五种交付
+格式分别用什么软件打开，以及那份 Word 溯源索引长什么样。
 
 <p align="center">
-  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/02-exact.png" width="760" alt="02 画准"/>
-</p>
-
-**03 使用手册** — 材料怎么给、它会问什么、你会拿到什么。
-
-<p align="center">
-  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/03-the-figure.png" width="760" alt="03 使用手册"/>
+  <img src="plugins/mqc-nlv/skills/mqc-timeline-master/assets/longform/03-the-figure.png" width="800" alt="03 使用手册"/>
 </p>
 
 </details>
@@ -263,34 +322,14 @@ python3 plugins/mqc-nlv/skills/mqc-timeline-master/tests/run_checks.py
   没人再看。
 - **缺一样只该少一种能力。** 第三方库缺席时退化，不是崩掉。这一条是 CI 上撞出来的。
 
-## 仓库结构
+## 关于作者
 
-```
-new-litigation-visualization/
-├── assets/                       仓库封面
-├── .claude-plugin/
-│   └── marketplace.json          插件市场清单
-├── plugins/
-│   └── mqc-nlv/
-│       ├── .claude-plugin/
-│       │   └── plugin.json       插件清单（版本只在这里声明）
-│       └── skills/
-│           ├── mqc-litigation-visual-redraw/    诉讼可视化重画
-│           │   ├── SKILL.md      技能主文档
-│           │   ├── references/   规程与标准
-│           │   ├── scripts/      确定性渲染管线
-│           │   └── schemas/ examples/ assets/ tests/
-│           └── mqc-timeline-master/             时间轴大师
-│               ├── SKILL.md      技能主文档
-│               ├── references/   规程与约束表（69 条编号约束）
-│               ├── scripts/      确定性渲染管线
-│               ├── docs/adr/     一件事为什么这么定
-│               └── schemas/ examples/ assets/ tests/
-└── .github/workflows/checks.yml  每次 push 与 PR 自动跑全部回归
-```
+<p align="center">
+  <img src="assets/author-card.jpg" width="620" alt="缪奇川 律师"/>
+</p>
 
-**共享内核只有一份。** 几何、字体、换行、导出这些多个模块共用的代码放在插件根，
-模块不许各自分叉。这是纪律不是设计：两边各存一份，半年后就是两套不一样的圆角。
+想聊法律 AI、诉讼可视化，或者对这个项目有任何建议，欢迎开 Issue，也可以直接
+发邮件：miaoqichuan@hotmail.com。
 
 ## 许可
 
