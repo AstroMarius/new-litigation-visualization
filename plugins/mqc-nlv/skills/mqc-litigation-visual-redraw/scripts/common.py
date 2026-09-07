@@ -124,8 +124,14 @@ NO_END = set("（【《「『〔｛‘“《〈#￥")
 def wrap(text: str, fs: float, max_w: float):
     """Greedy character wrap to a max pixel width, honoring CJK 禁则 (no line may
     start with closing punctuation or end with opening punctuation). Returns a
-    list of lines. Verbatim: only inserts line breaks, never edits characters."""
+    list of lines. Verbatim: only inserts line breaks, never edits characters.
+
+    Latin adaptation (italian-adaptation branch): when the current line contains
+    a space, break AT THE LAST SPACE instead of mid-word. A word is only ever
+    split mid-word if it alone exceeds max_w (pathological case). Pure-CJK text
+    contains no spaces, so the original behaviour is unchanged for Chinese."""
     lines, cur, acc = [], "", 0.0
+    last_space = -1        # index in cur of the most recent space
     for ch in text:
         w = char_w(ch, fs)
         if acc + w > max_w and cur:
@@ -143,12 +149,28 @@ def wrap(text: str, fs: float, max_w: float):
                 if cur:
                     lines.append(cur)
                 cur, acc = opener + ch, char_w(opener, fs) + w
+                last_space = -1
                 continue
+            if last_space > 0:
+                # Latin word wrap: keep the trailing space at the end of the
+                # line (invisible in rendering) and move the partial word down.
+                head, tail = cur[:last_space + 1], cur[last_space + 1:]
+                if text_w(tail, fs) <= max_w:
+                    lines.append(head)
+                    cur = tail + ch
+                    acc = text_w(cur, fs)
+                    last_space = -1
+                    continue
+                # tail alone exceeds max_w → let it fall through to the
+                # character-level break below so progress is always made.
             lines.append(cur)
             cur, acc = ch, w
+            last_space = -1
         else:
             cur += ch
             acc += w
+            if ch == " ":
+                last_space = len(cur) - 1
     if cur:
         lines.append(cur)
     return lines or [""]

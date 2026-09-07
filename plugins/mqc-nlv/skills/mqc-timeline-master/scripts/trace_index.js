@@ -15,7 +15,7 @@ const {
 } = require("docx");
 
 const data = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-const out = process.argv[3] || "溯源索引.docx";
+const out = process.argv[3] || "indice-provenienza.docx";
 
 const CN = "宋体";
 const EN = "Times New Roman";
@@ -82,7 +82,7 @@ const total = W.reduce(function (a, b) { return a + b; }, 0);
 
 const header = new TableRow({
   tableHeader: true,
-  children: ["图上编号", "卡片上的文字", "出自材料", "定位", "原文摘录"]
+  children: ["N.", "Testo in figura", "Documento fonte", "Posizione", "Citazione originale"]
     .map(function (t, i) {
       return cell(t, W[i], { bold: true, center: true, top: LINE, bottom: LINE,
                              left: i === 0 ? NONE : HAIR,
@@ -124,14 +124,14 @@ const doc = new Document({
         alignment: AlignmentType.CENTER,
         // 标题下方留一行间距（段后 240 缇 = 12pt ≈ 一行），仍用间距不用空段落
         spacing: { after: 240 },
-        children: [run(data.title || "溯源索引", { bold: true, size: 32 })],
+        children: [run(data.title || "Indice di provenienza", { bold: true, size: 32 })],
       }),
       new Paragraph({
         // 表格上方的间隔用**段后间距一行**，不用空段落。空段落在 Word 里是一个真的
         // 段落，改行距、加页眉、转 PDF 时都会各自跑偏；间距是段落属性，跟着段落走。
         spacing: { after: 240 },      // 240 缇 = 12pt ≈ 一行
         children: [run(data.note ||
-          "本表说明图上各元素分别出自材料何处，仅列对应关系，不含任何评价。")],
+          "La tabella indica da quale documento proviene ciascun elemento della figura; elenca sole corrispondenze, senza valutazioni.")],
       }),
       new Table({
         columnWidths: W,
@@ -142,7 +142,7 @@ const doc = new Document({
         // 表格下方同理：用**段前间距一行**，不用空段落
         spacing: { before: 240 },
         children: [run(data.foot ||
-          "\u201c定位\u201d为材料规范化后的句号，可据此回到原文逐字核对。")],
+          "La \u201cposizione\u201d \u00e8 il riferimento normalizzato al documento: permette di risalire all'originale per la verifica letterale.")],
       }),
     ],
   }],

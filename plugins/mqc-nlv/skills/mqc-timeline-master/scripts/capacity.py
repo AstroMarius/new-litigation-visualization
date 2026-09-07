@@ -27,10 +27,45 @@ import paper                                                     # noqa: E402
 from common import text_w, wrap                                  # noqa: E402
 
 
+def _has_cjk(m):
+    """True se la mappa contiene almeno un carattere CJK.
+
+    italian-adaptation: le capacità per mappe senza CJK vengono contate in
+    caratteri latini (avanzamento ~0.56em), non in 汉字 (1em). Contare in 汉字
+    una mappa italiana sottostima la capacità di ~44%: le card restano vuote.
+
+    Ranges CJK reali (Han + kana + compatibilità), non ord>0x2E7F: quel test
+    inghiotte le legature latine tipografiche (ﬁ U+FB01, ﬂ) presenti nel testo
+    OCR italiano e attiva la modalità CJK per sbaglio."""
+    def _cjk_char(c):
+        o = ord(c)
+        return (0x3040 <= o <= 0x30FF or 0x3400 <= o <= 0x4DBF
+                or 0x4E00 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF
+                or 0x20000 <= o <= 0x2FA1F)
+    def _cjk(s):
+        return any(_cjk_char(c) for c in str(s or ""))
+    if _cjk(m.get("title_text")):
+        return True
+    for e in (m or {}).get("events", []) or []:
+        if _cjk(e.get("head")) or _cjk(e.get("body")):
+            return True
+    return False
+
+
+LATIN_MODE = False   # impostato in main() dopo il caricamento della mappa
+
+
+def _probe(c):
+    """Stringa di prova per measured_cap: '字' per CJK, 'm' per latino."""
+    return ("m" if LATIN_MODE else "字") * c
+
+
 def _chars(width_px, fs):
-    """这个宽度里放得下几个汉字。"""
+    """这个宽度里放得下几个字（CJK 汉字，或者 latin-adaptation 下几个
+    caratteri latini a ~0.56em）。"""
+    unit = (fs * 0.56) if LATIN_MODE else fs
     n = 0
-    while text_w("字" * (n + 1), fs) <= width_px:
+    while (n + 1) * unit <= width_px:
         n += 1
     return n
 
@@ -88,7 +123,7 @@ def measured_cap(m, lo=1, hi=140):    # [C7] 容量既是上限也是目标
         # 行数**，超了就是把卡片撑高、把图挤变形，虽然没报错但已经不是设计中的样子。
         t = copy.deepcopy(m)
         for e in t.get("events", []):
-            e["head"] = "字" * c
+            e["head"] = _probe(c)
             e.pop("head_short", None)
             e.pop("body", None)
         tmp = tempfile.NamedTemporaryFile(suffix=".svg", delete=False)
@@ -317,6 +352,9 @@ if __name__ == "__main__":
         print("用法: capacity.py <semantic-map.json>")
         sys.exit(2)
     m = json.load(open(sys.argv[1], encoding="utf-8"))
+    LATIN_MODE = not _has_cjk(m)
+    if LATIN_MODE:
+        print("script: latino (capacità conteggiate in caratteri latini ~0.56em)")
     r = probe(m)
     if r["kind"] == "期间型":
         print(f"形态　期间型 · 横向　{r['n']} 段期间　标签 {r['fs_body']}px")
