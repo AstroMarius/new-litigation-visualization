@@ -82,7 +82,7 @@ def deliver(m, out_path):
             return ("期间型", "横向", f"{len(m['spans'])} 段期间，重叠关系是本图的论点。",
                     _sheet_size(out_path))
         except Exception as exc:
-            tried.append(f"期间型：{str(exc).splitlines()[0]}")
+            tried.append(f"layout per periodi: {str(exc).splitlines()[0]}")
     evs = m.get("events") or []
     if evs and all((e.get("time") or {}).get("certainty") == "exact" for e in evs):
         try:
@@ -93,7 +93,7 @@ def deliver(m, out_path):
                                      f"轴按等长的单位格铺开，距离本身在说话。",
                     _sheet_size(out_path))
         except Exception as exc:
-            tried.append(f"日期型：{str(exc).splitlines()[0]}")
+            tried.append(f"layout per data: {str(exc).splitlines()[0]}")
     # 只有期间、没有事件的地图，期间型拒绝之后编号型无事可画。以前这里直接崩，
     # 只留一个 traceback。阶梯确实到此为止了，但到此为止也要说成一句话：说清试过
     # 哪几档、各自为什么不行，用户才知道下一步该动取材范围还是动时间跨度。
@@ -107,7 +107,7 @@ def deliver(m, out_path):
         # tried 里每条本身就以句号收尾，直接再拼一个「。」会印出「。。」——
         # 原来这句被调用方截断到 110 字，看不见；不截断之后就露出来了。
         _head = "；".join(tried).rstrip("。；;.")
-        why = _head + f"。故改用编号型：{why}"
+        why = _head + f". Ripristino su layout numerico: {why}"
     return ("编号型", form, why, wh)
 
 
@@ -125,9 +125,9 @@ def choose_and_render(m, out_path):
         over = paper.over_budget(w, h, landscape=True)
         if not over:
             _frame_file(out_path, landscape=True)
-            bands = f"轴上 {bu} 条泳道、轴下 {bd} 条" if (bu + bd) > 2 else "一层上下交替"
-            return ("横向", f"{len(m.get('events', []))} 个元素在 A4 横版上排得下："
-                            f"{bands}，卡宽 {render_multiband.CARD_W:.0f}px。",
+            bands = f"{bu} corsie sopra l'asse, {bd} sotto" if (bu + bd) > 2 else "una fascia, alternati sopra/sotto"
+            return ("横向", f"{len(m.get('events', []))} elementi entrano sull'A4 orizzontale: "
+                            f"{bands}, larghezza card {render_multiband.CARD_W:.0f}px.",
                     _sheet_size(out_path))
         why = over
     # 横向排不下：自动改用纵向，不停下来问。形态选择是算出来的，不是点菜。
@@ -150,13 +150,13 @@ def choose_and_render(m, out_path):
         stem = os.path.splitext(os.path.basename(out_path))[0]
         try:
             files, npages = paginate.paginate(m, outdir, prefix=stem + "-page")
-            tail = f"，纵向长图 {h:.0f}px，已另出 {npages} 页可直接打印"
+            tail = f", long-chart verticale {h:.0f}px, generate {npages} pagine pronte per la stampa"
         except Exception as exc3:
-            tail = f"，纵向长图 {h:.0f}px 需分 {pages} 页，但分页未成（{exc3}）"
+            tail = f", long-chart verticale {h:.0f}px richiederebbe {pages} pagine, ma la paginazione non e' andata a buon fine ({exc3})"
     else:
-        tail = "，一页装得下"
-    return ("纵向", f"横向排不下（{why}）故改用纵向：每侧 {k} 列，"
-                    f"卡宽 {cw:.0f}px{tail}。", _sheet_size(out_path))
+        tail = ", entra in una pagina"
+    return ("纵向", f"L'orizzontale non basta ({why}): passo al verticale, {k} colonne per lato, "
+                    f"larghezza card {cw:.0f}px{tail}.", _sheet_size(out_path))
 
 
 def predict(m):
@@ -175,7 +175,9 @@ if __name__ == "__main__":
     src, out = sys.argv[1], sys.argv[2]
     m = json.load(open(src, encoding="utf-8"))
     kind, form, why, (w, h) = deliver(m, out)
-    print(f"[{kind} · {form}] {w:.0f}x{h:.0f}  {why}")
-    print(f"PNG 导出请放大 {paper.raster_scale(w)} 倍（纸上 "
-          f"{paper.raster_dpi(w):.0f} dpi，印刷下限 {paper.PRINT_DPI}）")
-    print(f"已写入 {out}")
+    _KIND_IT = {"编号型": "numerico", "日期型": "per data", "期间型": "per periodi"}
+    _FORM_IT = {"横向": "orizzontale", "纵向": "verticale"}
+    print(f"[{_KIND_IT.get(kind, kind)} · {_FORM_IT.get(form, form)}] {w:.0f}x{h:.0f}  {why}")
+    print(f"Per il PNG esporta con scala {paper.raster_scale(w)}x "
+          f"(risulteranno {paper.raster_dpi(w):.0f} dpi su carta; minimo di stampa {paper.PRINT_DPI})")
+    print(f"scritto: {out}")

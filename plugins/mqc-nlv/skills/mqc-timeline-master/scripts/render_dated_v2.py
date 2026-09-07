@@ -444,15 +444,15 @@ def render(m, plan_only=False):
     if _dots or _cards:
         why = []
         if _dots:
-            p = "、".join(f"{a}与{b}相隔{g}天" for a, b, g in _dots[:3])
-            why.append(f"{len(_dots)} 对时点在轴上几乎重合（{p}）")
+            p = ", ".join(f"{a} e {b} a {g} giorni" for a, b, g in _dots[:3])
+            why.append(f"{len(_dots)} date quasi coincidenti sull'asse ({p})")
         if _cards:
-            p = "、".join(f"{a}与{b}相隔{g}天" for a, b, g in _cards[:3])
-            why.append(f"{len(_cards)} 处同侧相邻卡片放不下"
-                       f"（{p}，按比例只有不到 {SAME_SIDE_MIN_PX} 像素）")
+            p = ", ".join(f"{a} e {b} a {g} giorni" for a, b, g in _cards[:3])
+            why.append(f"{len(_cards)} coppie di card dello stesso lato non entrano "
+                       f"({p}: in scala restano meno di {SAME_SIDE_MIN_PX} px)")
         raise RuntimeError(
-            "；".join(why) + "。请改用 numbered_point_timeline（编号型），"
-            "那里的间距本来就不承载含义。")
+            ". ".join(why) + ". Passa a numbered_point_timeline: "
+            "in quel layout la spaziatura non porta significato.")
 
     # **只算不画的出口。放在全部门禁之后** —— 这一点是踩过才知道的。
     # 原来它在第 300 行（刻度那道门禁之后、同侧间距那道门禁之前），于是八个等距时点

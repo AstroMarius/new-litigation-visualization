@@ -375,7 +375,7 @@ def render(m, out_path, target_w=None, min_card=None, fs_body=None, fs_date=None
     start = 1
     if n > HARD_MAX:
         raise ValueError(
-            f"{n} 个事件超过横向形态的上限 {HARD_MAX} 个")
+            f"{n} eventi superano il limite di {HARD_MAX} per la forma orizzontale")
 
     def seats(bands):
         global CARD_W
